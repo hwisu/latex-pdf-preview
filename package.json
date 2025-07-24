@@ -1,6 +1,6 @@
 {
-  "name": "latex-preview",
-  "displayName": "LaTeX Preview",
+  "name": "latex-html-preview",
+  "displayName": "LaTeX HTML Preview",
   "description": "Live preview for LaTeX documents in VS Code",
   "version": "0.0.1",
   "publisher": "hwisu",
