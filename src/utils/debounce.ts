@@ -1,18 +1,7 @@
-export function debounce<T extends (...args: any[]) => void>(
-    func: T,
-    wait: number
-): T {
-    let timeout: NodeJS.Timeout | undefined;
-
-    return ((...args: Parameters<T>) => {
-        const later = () => {
-            timeout = undefined;
-            func(...args);
-        };
-
-        if (timeout) {
-            clearTimeout(timeout);
-        }
-        timeout = setTimeout(later, wait);
+export const debounce = <T extends (...args: any[]) => any>(func: T, wait: number): T => {
+    let timeout: NodeJS.Timeout;
+    return ((...args) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func(...args), wait);
     }) as T;
-}
+};

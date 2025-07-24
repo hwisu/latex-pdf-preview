@@ -1,176 +1,92 @@
-import * as vscode from 'vscode';
-import * as path from 'path';
-import * as fs from 'fs';
+import { existsSync, readFileSync } from 'fs';
+import { join } from 'path';
+import { Disposable, Uri, ViewColumn, WebviewPanel, env, window } from 'vscode';
 
 export class PreviewPanel {
-    private static readonly viewType = 'latexPreview';
-    private panel: vscode.WebviewPanel | undefined;
-    private disposables: vscode.Disposable[] = [];
+    private panel?: WebviewPanel;
+    private disposables: Disposable[] = [];
     private onDisposeCallback?: () => void;
 
-    constructor(private readonly extensionUri: vscode.Uri) {}
+    constructor(private extensionPath: string) {}
 
-    public reveal(): void {
-        if (!this.panel) {
-            this.createPanel();
-        } else {
-            this.panel.reveal(vscode.ViewColumn.Beside);
-        }
-    }
+    reveal = () => this.panel ? this.panel.reveal(ViewColumn.Beside) : this.createPanel();
 
-    public update(htmlPath: string): void {
-        if (!this.panel) {
-            this.createPanel();
-        }
-
-        if (this.panel) {
-            this.panel.webview.html = this.getWebviewContent(htmlPath);
-        }
-    }
-
-    public onDidDispose(callback: () => void): void {
-        this.onDisposeCallback = callback;
-    }
-
-    private createPanel(): void {
-        this.panel = vscode.window.createWebviewPanel(
-            PreviewPanel.viewType,
-            'LaTeX Preview',
-            vscode.ViewColumn.Beside,
-            {
-                enableScripts: true,
-                localResourceRoots: [vscode.Uri.file('/')]
-            }
-        );
-
-        this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
-
-        this.panel.onDidChangeViewState(
-            e => {
-                if (this.panel?.visible) {
-                    vscode.commands.executeCommand('setContext', 'latexPreviewFocus', true);
-                } else {
-                    vscode.commands.executeCommand('setContext', 'latexPreviewFocus', false);
-                }
-            },
-            null,
-            this.disposables
-        );
-    }
-
-    private getWebviewContent(htmlPath: string): string {
-        if (!this.panel) {
-            return '';
-        }
-
-        try {
-            // Read the HTML content
-            const htmlContent = fs.readFileSync(htmlPath, 'utf8');
-            const htmlDir = path.dirname(htmlPath);
-            const htmlUri = this.panel.webview.asWebviewUri(vscode.Uri.file(htmlDir));
-
-            // Process the HTML to fix resource paths
-            let processedHtml = htmlContent;
-            
-            // Replace relative paths with webview URIs
-            processedHtml = processedHtml.replace(
-                /(src|href)=["'](?!https?:\/\/)([^"']+)["']/g, 
-                `$1="${htmlUri}/$2"`
-            );
-
-            // Add CSS reset and minimal VS Code integration
-            const cssReset = `
-<style>
-    /* CSS Reset to prevent VS Code webview interference */
-    * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-    }
-    
-    /* Reset all possible VS Code overrides */
-    body, div, span, h1, h2, h3, h4, h5, h6, p, a, em, strong, 
-    pre, code, table, tbody, tfoot, thead, tr, th, td {
-        all: initial;
-        display: revert;
-        font-family: inherit;
-        font-size: inherit;
-        font-weight: inherit;
-        text-align: inherit;
-        color: inherit;
-        line-height: inherit;
-    }
-    
-    /* Re-enable basic display properties */
-    div { display: block; }
-    span { display: inline; }
-    table { display: table; }
-    tr { display: table-row; }
-    td { display: table-cell; }
-    a { display: inline; cursor: pointer; }
-    
-    /* Only apply VS Code colors to body background */
-    body {
-        background-color: var(--vscode-editor-background);
-        color: var(--vscode-editor-foreground);
-        width: 100%;
-        height: 100%;
-        overflow: auto;
-    }
-    
-    /* Let LaTeX styles take precedence */
-    .center { text-align: center !important; }
-    .center * { text-align: center !important; }
-</style>\n</head>`;
-            processedHtml = processedHtml.replace('</head>', cssReset);
-
-            return processedHtml;
-        } catch (error) {
-            return `
-<!DOCTYPE html>
+    update = (pdfPath: string) => {
+        !this.panel && this.createPanel();
+        if (this.panel && existsSync(pdfPath)) {
+            const pdfBase64 = readFileSync(pdfPath).toString('base64');
+            this.panel.webview.html = `<!DOCTYPE html>
 <html>
 <head>
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            padding: 20px;
-            background-color: var(--vscode-editor-background);
-            color: var(--vscode-editor-foreground);
-        }
-        .error {
-            color: #f48771;
-            border: 1px solid #f48771;
-            padding: 15px;
-            border-radius: 5px;
-            background-color: rgba(244, 135, 113, 0.1);
-        }
+        body { margin: 0; padding: 0; background: #1e1e1e; overflow-y: auto; text-align: center; }
+        #container { padding: 20px; }
+        .page-canvas { display: block; margin: 0 auto 20px auto; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); }
+        .controls { position: fixed; top: 10px; right: 10px; background: rgba(0, 0, 0, 0.8); padding: 10px; border-radius: 5px; color: white; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; z-index: 1000; }
+        button { background: #007ACC; color: white; border: none; padding: 5px 10px; margin: 0 5px; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #005a9e; }
     </style>
 </head>
 <body>
-    <div class="error">
-        <h2>Error loading preview</h2>
-        <p>${error}</p>
-        <p>Path: ${htmlPath}</p>
+    <div class="controls">
+        <button id="zoomOut">-</button>
+        <span style="margin: 0 10px;">Zoom</span>
+        <button id="zoomIn">+</button>
+        <button id="fitWidth">Fit Width</button>
     </div>
+    <div id="container"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        let pdfDoc = null, scale = 1.2;
+        const pdfData = Uint8Array.from(atob('${pdfBase64}'), c => c.charCodeAt(0));
+        
+        async function renderAllPages() {
+            const container = document.getElementById('container');
+            container.innerHTML = '';
+            for (let i = 1; i <= pdfDoc.numPages; i++) {
+                const page = await pdfDoc.getPage(i);
+                const viewport = page.getViewport({ scale });
+                const canvas = document.createElement('canvas');
+                canvas.className = 'page-canvas';
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+                container.appendChild(canvas);
+            }
+        }
+        
+        pdfjsLib.getDocument({data: pdfData}).promise.then(pdf => { pdfDoc = pdf; renderAllPages(); });
+        
+        document.getElementById('zoomIn').onclick = () => { scale += 0.2; renderAllPages(); };
+        document.getElementById('zoomOut').onclick = () => { scale > 0.5 && (scale -= 0.2); renderAllPages(); };
+        document.getElementById('fitWidth').onclick = () => {
+            const width = document.getElementById('container').clientWidth - 40;
+            pdfDoc.getPage(1).then(page => {
+                scale = width / page.getViewport({ scale: 1 }).width;
+                renderAllPages();
+            });
+        };
+    </script>
 </body>
 </html>`;
         }
     }
 
-    private dispose(): void {
-        vscode.commands.executeCommand('setContext', 'latexPreviewFocus', false);
-        
+    onDidDispose = (callback: () => void) => this.onDisposeCallback = callback;
+
+    private createPanel = () => {
+        this.panel = window.createWebviewPanel('latexPreview', 'LaTeX Preview', ViewColumn.Beside, {
+            enableScripts: true,
+            localResourceRoots: [Uri.file(this.extensionPath), Uri.file(join(env.appRoot, '..'))]
+        });
+        this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
+    }
+
+    private dispose = () => {
         this.panel = undefined;
-
-        while (this.disposables.length) {
-            const disposable = this.disposables.pop();
-            if (disposable) {
-                disposable.dispose();
-            }
-        }
-
-        if (this.onDisposeCallback) {
-            this.onDisposeCallback();
-        }
+        this.disposables.forEach(d => d.dispose());
+        this.disposables = [];
+        this.onDisposeCallback?.();
     }
 }
