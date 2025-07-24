@@ -14,7 +14,7 @@ export class LaTeXCompiler {
         this.outputChannel = vscode.window.createOutputChannel('LaTeX Preview');
     }
 
-    async compile(documentUri: vscode.Uri): Promise<string> {
+    async compile(documentUri: vscode.Uri, noCss: boolean = false): Promise<string> {
         const config = vscode.workspace.getConfiguration('latex-preview');
         const compiler = config.get<string>('compiler', 'make4ht');
         const executablePath = config.get<string>('executablePath', '');
@@ -65,7 +65,10 @@ export class LaTeXCompiler {
 
             // Post-process HTML to ensure proper font handling
             let htmlContent = fs.readFileSync(htmlPath, 'utf8');
-            htmlContent = this.postProcessHtml(htmlContent);
+            if (!noCss) {
+                htmlContent = this.postProcessHtml(htmlContent);
+            }
+            // When noCss is true, we don't add extra CSS but keep the LaTeX-generated inline styles
             fs.writeFileSync(htmlPath, htmlContent);
 
             if (cleanAuxFiles) {
@@ -183,6 +186,18 @@ export class LaTeXCompiler {
                 // Pandoc with custom CSS
                 return `cd "${outputDir}" && ${compilerPath} -f latex -t html5 --standalone --mathjax --metadata title="LaTeX Preview" --css-include=custom.css -o "${texName}.html" "${texPath}"`;
             
+            case 'pdflatex':
+                // Compile to PDF first, then use pandoc on the LaTeX source
+                return `cd "${outputDir}" && pdflatex -interaction=nonstopmode "${texPath}" && pandoc -f latex -t html5 --standalone --mathjax -o "${texName}.html" "${texPath}"`;
+            
+            case 'xelatex':
+                // XeLaTeX for better font support, then pandoc on LaTeX source
+                return `cd "${outputDir}" && xelatex -interaction=nonstopmode "${texPath}" && pandoc -f latex -t html5 --standalone --mathjax -o "${texName}.html" "${texPath}"`;
+            
+            case 'pdflatex+pdftohtml':
+                // First compile to PDF, then convert to HTML using poppler
+                return `cd "${outputDir}" && pdflatex -interaction=nonstopmode "${texPath}" && pdflatex -interaction=nonstopmode "${texPath}" && pdftohtml -s -noframes "${texName}.pdf" "${texName}.html"`;
+            
             default:
                 // Default to make4ht for best results
                 return `cd "${outputDir}" && make4ht "${texPath}" "myconfig,html5,mathml,mathjax,charset=utf-8,fn-in" "-interaction=nonstopmode"`;
@@ -190,7 +205,7 @@ export class LaTeXCompiler {
     }
 
     private async cleanAuxiliaryFiles(dir: string, baseName: string): Promise<void> {
-        const extensions = ['.aux', '.log', '.out', '.toc', '.lof', '.lot', '.fls', '.fdb_latexmk', '.synctex.gz', '.4ct', '.4tc', '.dvi', '.idv', '.lg', '.tmp', '.xref', '.css'];
+        const extensions = ['.aux', '.log', '.out', '.toc', '.lof', '.lot', '.fls', '.fdb_latexmk', '.synctex.gz', '.4ct', '.4tc', '.dvi', '.idv', '.lg', '.tmp', '.xref', '.css', '.pdf'];
         
         for (const ext of extensions) {
             const filePath = path.join(dir, baseName + ext);
@@ -199,7 +214,7 @@ export class LaTeXCompiler {
                     fs.unlinkSync(filePath);
                 }
             } catch (error) {
-                console.error(`Failed to delete ${filePath}: ${error}`);
+                // Ignore deletion errors
             }
         }
         
@@ -210,7 +225,7 @@ export class LaTeXCompiler {
                 fs.unlinkSync(configPath);
             }
         } catch (error) {
-            console.error(`Failed to delete config: ${error}`);
+            // Ignore deletion errors
         }
     }
 }

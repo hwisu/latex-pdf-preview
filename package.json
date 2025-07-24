@@ -2,7 +2,7 @@
   "name": "latex-html-preview",
   "displayName": "LaTeX HTML Preview",
   "description": "Live preview for LaTeX documents in VS Code",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "hwisu",
   "engines": {
     "vscode": "^1.75.0"
@@ -28,6 +28,16 @@
         "command": "latex-preview.refreshPreview",
         "title": "LaTeX: Refresh Preview",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "latex-preview.openHtml",
+        "title": "LaTeX: Open HTML in Browser",
+        "icon": "$(browser)"
+      },
+      {
+        "command": "latex-preview.openHtmlInVSCode",
+        "title": "LaTeX: Open HTML in VS Code",
+        "icon": "$(file-code)"
       }
     ],
     "menus": {
@@ -54,9 +64,9 @@
         },
         "latex-preview.compiler": {
           "type": "string",
-          "default": "make4ht",
-          "enum": ["make4ht", "htlatex", "latex2html", "pandoc"],
-          "description": "LaTeX to HTML converter (make4ht preserves fonts/styles best)"
+          "default": "pdflatex",
+          "enum": ["make4ht", "htlatex", "latex2html", "pandoc", "pdflatex", "pdflatex+pdftohtml", "xelatex"],
+          "description": "LaTeX compiler (pdflatex produces best PDF output)"
         },
         "latex-preview.autoCompile": {
           "type": "boolean",
