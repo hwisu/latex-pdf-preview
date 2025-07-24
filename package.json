@@ -1,0 +1,111 @@
+{
+  "name": "latex-preview",
+  "displayName": "LaTeX Preview",
+  "description": "Live preview for LaTeX documents in VS Code",
+  "version": "0.0.1",
+  "publisher": "hwisu",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hwisu/latex-preview"
+  },
+  "categories": ["Other"],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onLanguage:latex",
+    "onLanguage:tex"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "latex-preview.showPreview",
+        "title": "LaTeX: Show Preview",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "latex-preview.refreshPreview",
+        "title": "LaTeX: Refresh Preview",
+        "icon": "$(refresh)"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "when": "resourceExtname == .tex",
+          "command": "latex-preview.showPreview",
+          "group": "navigation"
+        },
+        {
+          "when": "resourceExtname == .tex && latexPreviewFocus",
+          "command": "latex-preview.refreshPreview",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "LaTeX Preview",
+      "properties": {
+        "latex-preview.executablePath": {
+          "type": "string",
+          "default": "",
+          "description": "Custom path to LaTeX executable (leave empty to use system PATH)"
+        },
+        "latex-preview.compiler": {
+          "type": "string",
+          "default": "make4ht",
+          "enum": ["make4ht", "htlatex", "latex2html", "pandoc"],
+          "description": "LaTeX to HTML converter (make4ht preserves fonts/styles best)"
+        },
+        "latex-preview.autoCompile": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically compile on file save"
+        },
+        "latex-preview.cleanAuxFiles": {
+          "type": "boolean",
+          "default": true,
+          "description": "Clean auxiliary files after compilation"
+        },
+        "latex-preview.outputDirectory": {
+          "type": "string",
+          "default": "",
+          "description": "Output directory for compiled files (empty for same as source)"
+        }
+      }
+    },
+    "keybindings": [
+      {
+        "command": "latex-preview.showPreview",
+        "key": "ctrl+shift+v",
+        "mac": "cmd+shift+v",
+        "when": "editorTextFocus && resourceExtname == .tex"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/glob": "^8.0.0",
+    "@types/mocha": "^10.0.1",
+    "@types/node": "16.x",
+    "@types/vscode": "^1.75.0",
+    "@typescript-eslint/eslint-plugin": "^5.45.0",
+    "@typescript-eslint/parser": "^5.45.0",
+    "@vscode/test-electron": "^2.2.0",
+    "eslint": "^8.28.0",
+    "glob": "^8.0.3",
+    "mocha": "^10.1.0",
+    "typescript": "^4.9.3"
+  },
+  "dependencies": {
+    "chokidar": "^3.5.3"
+  }
+}
