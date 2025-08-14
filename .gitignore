@@ -34,6 +34,12 @@ yarn-error.log*
 test-math.tex
 custom-center.cfg
 
+# Crush local metadata
+a.crush/
+.crush/
+CRUSH.md
+crush.json
+
 # Temp files
 *.tmp
 *.temp
