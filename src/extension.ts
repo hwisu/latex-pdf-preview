@@ -22,8 +22,10 @@ export function activate(context: ExtensionContext) {
         if (!document) return;
         
         await document.save();
-        !previewPanel && (previewPanel = new PreviewPanel(context.extensionPath));
-        previewPanel.onDidDispose(() => { fileWatcher?.dispose(); previewPanel = fileWatcher = undefined; });
+        if (!previewPanel) {
+            previewPanel = new PreviewPanel(context.extensionPath);
+            previewPanel.onDidDispose(() => { fileWatcher?.dispose(); previewPanel = fileWatcher = undefined; });
+        }
 
         try {
             const pdfPath = await compiler.compile(document.uri);
@@ -31,7 +33,8 @@ export function activate(context: ExtensionContext) {
             previewPanel.update(pdfPath);
 
             const config = workspace.getConfiguration('latex-preview');
-            if (config.get<boolean>('autoCompile') && !fileWatcher) {
+            if (config.get<boolean>('autoCompile')) {
+                fileWatcher?.dispose();
                 fileWatcher = new FileWatcher(document.uri, async () => {
                     try {
                         const pdfPath = await compiler.compile(document.uri);
@@ -40,6 +43,9 @@ export function activate(context: ExtensionContext) {
                         window.showErrorMessage(`Compilation error: ${error}`);
                     }
                 });
+            } else {
+                fileWatcher?.dispose();
+                fileWatcher = undefined;
             }
         } catch (error) {
             window.showErrorMessage(`Failed to compile LaTeX: ${error}`);

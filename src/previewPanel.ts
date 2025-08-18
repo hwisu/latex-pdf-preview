@@ -14,11 +14,18 @@ export class PreviewPanel {
     update = (pdfPath: string) => {
         !this.panel && this.createPanel();
         if (this.panel && existsSync(pdfPath)) {
+            const webview = this.panel.webview;
+            const nonce = this.getNonce();
+            const cspSource = webview.cspSource;
+            const pdfjsDir = Uri.file(join(this.extensionPath, 'node_modules', 'pdfjs-dist', 'build'));
+            const pdfjsUri = webview.asWebviewUri(Uri.file(join(pdfjsDir.fsPath, 'pdf.min.js')));
+            const workerUri = webview.asWebviewUri(Uri.file(join(pdfjsDir.fsPath, 'pdf.worker.min.js')));
             const pdfBase64 = readFileSync(pdfPath).toString('base64');
             this.panel.webview.html = `<!DOCTYPE html>
 <html>
 <head>
-    <style>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${cspSource} data: blob:; script-src ${cspSource} 'nonce-${nonce}'; style-src ${cspSource} 'nonce-${nonce}';">
+    <style nonce="${nonce}">
         body { margin: 0; padding: 0; background: #1e1e1e; overflow-y: auto; text-align: center; }
         #container { padding: 20px; }
         .page-canvas { display: block; margin: 0 auto 20px auto; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); }
@@ -35,9 +42,9 @@ export class PreviewPanel {
         <button id="fitWidth">Fit Width</button>
     </div>
     <div id="container"></div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script>
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    <script src="${pdfjsUri}"></script>
+    <script nonce="${nonce}">
+        pdfjsLib.GlobalWorkerOptions.workerSrc = '${workerUri}';
         let pdfDoc = null, scale = 1.2;
         const pdfData = Uint8Array.from(atob('${pdfBase64}'), c => c.charCodeAt(0));
         
@@ -78,7 +85,12 @@ export class PreviewPanel {
     private createPanel = () => {
         this.panel = window.createWebviewPanel('latexPreview', 'LaTeX Preview', ViewColumn.Beside, {
             enableScripts: true,
-            localResourceRoots: [Uri.file(this.extensionPath), Uri.file(join(env.appRoot, '..'))]
+            retainContextWhenHidden: true,
+            localResourceRoots: [
+                Uri.file(this.extensionPath),
+                Uri.file(join(this.extensionPath, 'node_modules', 'pdfjs-dist', 'build')),
+                Uri.file(join(env.appRoot, '..'))
+            ]
         });
         this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
     }
@@ -88,5 +100,12 @@ export class PreviewPanel {
         this.disposables.forEach(d => d.dispose());
         this.disposables = [];
         this.onDisposeCallback?.();
+    }
+
+    private getNonce(): string {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        let nonce = '';
+        for (let i = 0; i < 16; i++) nonce += chars.charAt(Math.floor(Math.random() * chars.length));
+        return nonce;
     }
 }

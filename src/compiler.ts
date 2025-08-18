@@ -77,7 +77,8 @@ export class LaTeXCompiler {
       this.inflight.delete(texPath);
     }
 
-    const exe = config.get<string>('executablePath') || 'pdflatex';
+    const exePath = config.get<string>('executablePath') || 'pdflatex';
+    const exe = exePath.includes(' ') ? `"${exePath}"` : exePath;
     const args = `-interaction=nonstopmode -halt-on-error -file-line-error`;
     const command = `${exe} ${args} "${tempTexPath}"`;
 
@@ -85,10 +86,18 @@ export class LaTeXCompiler {
     this.outputChannel.appendLine(`Compiling ${texPath}...`);
 
     return new Promise<string>((resolve, reject) => {
-      const proc = require('child_process').exec(command, { cwd: workDir }, (err: any) => {
+      const proc = require('child_process').exec(command, { cwd: workDir }, (err: any, stdout: string, stderr: string) => {
         this.inflight.delete(texPath);
         if (err) {
           this.outputChannel.appendLine(`Compilation failed: ${err}`);
+          if (stdout) {
+            this.outputChannel.appendLine('--- stdout ---');
+            this.outputChannel.appendLine(stdout);
+          }
+          if (stderr) {
+            this.outputChannel.appendLine('--- stderr ---');
+            this.outputChannel.appendLine(stderr);
+          }
           this.outputChannel.show();
           reject(err);
           return;

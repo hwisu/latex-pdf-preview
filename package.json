@@ -18,7 +18,9 @@
   "main": "./out/extension.js",
   "activationEvents": [
     "onLanguage:latex",
-    "onLanguage:tex"
+    "onLanguage:tex",
+    "onCommand:latex-preview.showPreview",
+    "onCommand:latex-preview.refreshPreview"
   ],
   "contributes": {
     "commands": [
