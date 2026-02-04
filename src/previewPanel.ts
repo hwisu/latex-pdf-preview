@@ -1,6 +1,6 @@
-import { existsSync, readFileSync } from 'fs';
+import { existsSync } from 'fs';
 import { join } from 'path';
-import { Disposable, Uri, ViewColumn, WebviewPanel, env, window } from 'vscode';
+import { Disposable, Uri, ViewColumn, WebviewPanel, workspace, window } from 'vscode';
 
 export class PreviewPanel {
     private panel?: WebviewPanel;
@@ -17,10 +17,15 @@ export class PreviewPanel {
             const webview = this.panel.webview;
             const nonce = this.getNonce();
             const cspSource = webview.cspSource;
+
+            // Get PDF.js resources
             const pdfjsDir = Uri.file(join(this.extensionPath, 'node_modules', 'pdfjs-dist', 'build'));
             const pdfjsUri = webview.asWebviewUri(Uri.file(join(pdfjsDir.fsPath, 'pdf.min.js')));
             const workerUri = webview.asWebviewUri(Uri.file(join(pdfjsDir.fsPath, 'pdf.worker.min.js')));
-            const pdfBase64 = readFileSync(pdfPath).toString('base64');
+
+            // Use webview URI for PDF instead of base64 encoding
+            const pdfUri = webview.asWebviewUri(Uri.file(pdfPath));
+
             this.panel.webview.html = `<!DOCTYPE html>
 <html>
 <head>
@@ -46,8 +51,8 @@ export class PreviewPanel {
     <script nonce="${nonce}">
         pdfjsLib.GlobalWorkerOptions.workerSrc = '${workerUri}';
         let pdfDoc = null, scale = 1.2;
-        const pdfData = Uint8Array.from(atob('${pdfBase64}'), c => c.charCodeAt(0));
-        
+        const pdfUrl = '${pdfUri}';
+
         async function renderAllPages() {
             const container = document.getElementById('container');
             container.innerHTML = '';
@@ -62,9 +67,9 @@ export class PreviewPanel {
                 container.appendChild(canvas);
             }
         }
-        
-        pdfjsLib.getDocument({data: pdfData}).promise.then(pdf => { pdfDoc = pdf; renderAllPages(); });
-        
+
+        pdfjsLib.getDocument(pdfUrl).promise.then(pdf => { pdfDoc = pdf; renderAllPages(); });
+
         document.getElementById('zoomIn').onclick = () => { scale += 0.2; renderAllPages(); };
         document.getElementById('zoomOut').onclick = () => { scale > 0.5 && (scale -= 0.2); renderAllPages(); };
         document.getElementById('fitWidth').onclick = () => {
@@ -83,13 +88,16 @@ export class PreviewPanel {
     onDidDispose = (callback: () => void) => this.onDisposeCallback = callback;
 
     private createPanel = () => {
+        // Get workspace folders for localResourceRoots
+        const workspaceFolders = workspace.workspaceFolders?.map((f) => f.uri) || [];
+
         this.panel = window.createWebviewPanel('latexPreview', 'LaTeX Preview', ViewColumn.Beside, {
             enableScripts: true,
             retainContextWhenHidden: true,
             localResourceRoots: [
                 Uri.file(this.extensionPath),
                 Uri.file(join(this.extensionPath, 'node_modules', 'pdfjs-dist', 'build')),
-                Uri.file(join(env.appRoot, '..'))
+                ...workspaceFolders
             ]
         });
         this.panel.onDidDispose(() => this.dispose(), null, this.disposables);

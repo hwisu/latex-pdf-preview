@@ -2,6 +2,7 @@ import { ExtensionContext, commands, window, workspace } from 'vscode';
 import { LaTeXCompiler } from './compiler';
 import { FileWatcher } from './fileWatcher';
 import { PreviewPanel } from './previewPanel';
+import { handleCompilationError } from './utils/errorHandler';
 
 let compiler: LaTeXCompiler, previewPanel: PreviewPanel | undefined, fileWatcher: FileWatcher | undefined;
 
@@ -20,7 +21,7 @@ export function activate(context: ExtensionContext) {
     const showPreview = commands.registerCommand('latex-preview.showPreview', async () => {
         const document = validateLatexDocument();
         if (!document) return;
-        
+
         await document.save();
         if (!previewPanel) {
             previewPanel = new PreviewPanel(context.extensionPath);
@@ -40,7 +41,7 @@ export function activate(context: ExtensionContext) {
                         const pdfPath = await compiler.compile(document.uri);
                         previewPanel?.update(pdfPath);
                     } catch (error) {
-                        window.showErrorMessage(`Compilation error: ${error}`);
+                        handleCompilationError(error, 'watch');
                     }
                 });
             } else {
@@ -48,7 +49,7 @@ export function activate(context: ExtensionContext) {
                 fileWatcher = undefined;
             }
         } catch (error) {
-            window.showErrorMessage(`Failed to compile LaTeX: ${error}`);
+            handleCompilationError(error, 'compile');
         }
     });
 
@@ -58,7 +59,7 @@ export function activate(context: ExtensionContext) {
             const pdfPath = await compiler.compile(window.activeTextEditor.document.uri);
             previewPanel.update(pdfPath);
         } catch (error) {
-            window.showErrorMessage(`Failed to refresh preview: ${error}`);
+            handleCompilationError(error, 'refresh');
         }
     });
 
