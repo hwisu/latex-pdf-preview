@@ -4,12 +4,14 @@ Live PDF preview for LaTeX documents in VS Code.
 
 ## Features
 
-- 📄 **Real-time PDF preview** - Auto-compiles on save
-- 🔍 **Continuous scrolling** - View all pages at once
-- 🔎 **Zoom controls** - Adjust PDF scale
-- 📱 **Responsive** - Fits to window width
+- Real-time PDF preview - Auto-compiles on save
+- Lightweight - No bundled PDF renderer (~36KB package)
+- Uses VSCode's native PDF viewing
 
-## Install
+## Requirements
+
+- LaTeX distribution (pdflatex, xelatex, lualatex, or latexmk)
+- PDF viewer extension for VSCode (e.g., [vscode-pdf](https://marketplace.visualstudio.com/items?itemName=tomoki1207.pdf))
 
 ```bash
 # macOS
@@ -29,6 +31,15 @@ brew install --cask mactex    # or basictex
 
 - `LaTeX: Show Preview` - Open PDF preview
 - `LaTeX: Refresh Preview` - Manual refresh
+
+## Settings
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `latex-preview.executablePath` | `""` | Custom LaTeX executable path |
+| `latex-preview.autoCompile` | `true` | Auto-compile on save |
+| `latex-preview.debounceDelay` | `300` | Debounce delay (ms) |
+| `latex-preview.throttleDelay` | `2000` | Throttle delay (ms) |
 
 ## License
 
