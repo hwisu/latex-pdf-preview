@@ -1,9 +1,22 @@
 import { execFile, ChildProcess, ExecFileException } from 'child_process';
 import { copyFileSync, existsSync, mkdirSync, rmSync, statSync, unlinkSync } from 'fs';
-import { basename, dirname, extname, join } from 'path';
+import { platform, tmpdir } from 'os';
+import { basename, extname, join } from 'path';
 import { ExtensionContext, Uri, window, workspace } from 'vscode';
 
 const ALLOWED_EXECUTABLES = ['pdflatex', 'xelatex', 'lualatex', 'latexmk'];
+
+function getCacheBaseDir(): string {
+  const home = process.env.HOME || process.env.USERPROFILE || tmpdir();
+  switch (platform()) {
+    case 'darwin':
+      return join(home, 'Library', 'Caches', 'latex-pdf-preview');
+    case 'win32':
+      return join(process.env.LOCALAPPDATA || join(home, 'AppData', 'Local'), 'latex-pdf-preview', 'cache');
+    default: // linux and others
+      return join(process.env.XDG_CACHE_HOME || join(home, '.cache'), 'latex-pdf-preview');
+  }
+}
 
 interface CompileSession {
   process: ChildProcess;
@@ -13,37 +26,28 @@ interface CompileSession {
 
 export class LaTeXCompiler {
   private outputChannel = window.createOutputChannel('LaTeX Preview');
-  private cacheDirPerWorkspace = new Map<string, string>();
+  private cacheDir: string;
   private compileSessions = new Map<string, CompileSession>();
   private lastInputHash = new Map<string, string>();
   private sessionCounter = 0;
 
-  constructor(private context: ExtensionContext) {}
+  constructor(private context: ExtensionContext) {
+    this.cacheDir = getCacheBaseDir();
+    existsSync(this.cacheDir) || mkdirSync(this.cacheDir, { recursive: true });
+  }
 
   dispose = () => {
     this.outputChannel.dispose();
-    this.cacheDirPerWorkspace.forEach(dir => existsSync(dir) && rmSync(dir, { recursive: true, force: true }));
+    // Clean up cache directory on dispose
+    if (existsSync(this.cacheDir)) {
+      rmSync(this.cacheDir, { recursive: true, force: true });
+    }
     this.compileSessions.forEach(session => {
       session.aborted = true;
       try { session.process.kill(); } catch { /* process may have already exited */ }
     });
     this.compileSessions.clear();
   };
-
-  private getWorkspaceFolderPath(uri: Uri): string {
-    const folder = workspace.getWorkspaceFolder(uri);
-    return folder ? folder.uri.fsPath : dirname(uri.fsPath);
-  }
-
-  private ensureCacheDir(workspacePath: string): string {
-    let dir = this.cacheDirPerWorkspace.get(workspacePath);
-    if (!dir) {
-      dir = join(workspacePath, '.latex-preview-cache');
-      existsSync(dir) || mkdirSync(dir, { recursive: true });
-      this.cacheDirPerWorkspace.set(workspacePath, dir);
-    }
-    return dir;
-  }
 
   private simpleHash(input: string): string {
     let h = 0;
@@ -80,9 +84,9 @@ export class LaTeXCompiler {
     const texPath = documentUri.fsPath;
     const texName = basename(texPath, extname(texPath));
 
-    const workspacePath = this.getWorkspaceFolderPath(documentUri);
-    const cacheDir = this.ensureCacheDir(workspacePath);
-    const workDir = join(cacheDir, texName);
+    // Use hash of full path to avoid collisions between same-named files
+    const pathHash = this.simpleHash(texPath);
+    const workDir = join(this.cacheDir, `${texName}-${pathHash}`);
     existsSync(workDir) || mkdirSync(workDir, { recursive: true });
 
     const tempTexPath = join(workDir, basename(texPath));

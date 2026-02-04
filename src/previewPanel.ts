@@ -1,18 +1,31 @@
 import { existsSync } from 'fs';
-import { join } from 'path';
+import { dirname, join } from 'path';
 import { Disposable, Uri, ViewColumn, WebviewPanel, workspace, window } from 'vscode';
 
 export class PreviewPanel {
     private panel?: WebviewPanel;
     private disposables: Disposable[] = [];
     private onDisposeCallback?: () => void;
+    private currentPdfDir?: string;
 
     constructor(private extensionPath: string) {}
 
-    reveal = () => this.panel ? this.panel.reveal(ViewColumn.Beside) : this.createPanel();
+    reveal = () => this.panel?.reveal(ViewColumn.Beside);
 
     update = (pdfPath: string) => {
-        !this.panel && this.createPanel();
+        const pdfDir = dirname(pdfPath);
+
+        // Recreate panel if PDF directory changed (localResourceRoots can't be updated)
+        if (this.panel && this.currentPdfDir !== pdfDir) {
+            this.panel.dispose();
+            this.panel = undefined;
+        }
+
+        if (!this.panel) {
+            this.createPanel(pdfDir);
+            this.currentPdfDir = pdfDir;
+        }
+
         if (this.panel && existsSync(pdfPath)) {
             const webview = this.panel.webview;
             const nonce = this.getNonce();
@@ -87,7 +100,7 @@ export class PreviewPanel {
 
     onDidDispose = (callback: () => void) => this.onDisposeCallback = callback;
 
-    private createPanel = () => {
+    private createPanel = (pdfDir: string) => {
         // Get workspace folders for localResourceRoots
         const workspaceFolders = workspace.workspaceFolders?.map((f) => f.uri) || [];
 
@@ -97,6 +110,7 @@ export class PreviewPanel {
             localResourceRoots: [
                 Uri.file(this.extensionPath),
                 Uri.file(join(this.extensionPath, 'node_modules', 'pdfjs-dist', 'build')),
+                Uri.file(pdfDir),
                 ...workspaceFolders
             ]
         });
@@ -105,6 +119,7 @@ export class PreviewPanel {
 
     private dispose = () => {
         this.panel = undefined;
+        this.currentPdfDir = undefined;
         this.disposables.forEach(d => d.dispose());
         this.disposables = [];
         this.onDisposeCallback?.();

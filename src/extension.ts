@@ -30,8 +30,8 @@ export function activate(context: ExtensionContext) {
 
         try {
             const pdfPath = await compiler.compile(document.uri);
-            previewPanel.reveal();
             previewPanel.update(pdfPath);
+            previewPanel.reveal();
 
             const config = workspace.getConfiguration('latex-preview');
             if (config.get<boolean>('autoCompile')) {
