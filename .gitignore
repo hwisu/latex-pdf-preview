@@ -18,6 +18,7 @@ dist/
 *.swp
 *.swo
 *~
+.vscode-test/
 
 # OS
 .DS_Store

@@ -4,15 +4,18 @@ import { debounce } from './utils/debounce';
 export class FileWatcher {
   private disposables: Disposable[] = [];
   private lastTrigger = 0;
-  private readonly THROTTLE_MS = 2000;
 
   constructor(uri: Uri, onChange: () => void) {
+    const config = workspace.getConfiguration('latex-preview');
+    const debounceDelay = config.get<number>('debounceDelay', 300);
+    const throttleDelay = config.get<number>('throttleDelay', 2000);
+
     const debouncedChange = debounce(() => {
       const now = Date.now();
-      if (now - this.lastTrigger < this.THROTTLE_MS) return;
+      if (now - this.lastTrigger < throttleDelay) return;
       this.lastTrigger = now;
       onChange();
-    }, 300);
+    }, debounceDelay);
 
     this.disposables.push(
       workspace.onDidSaveTextDocument(doc =>

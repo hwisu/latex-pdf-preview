@@ -1,10 +1,9 @@
-import { ExtensionContext, commands, window, workspace } from 'vscode';
+import { ExtensionContext, Uri, ViewColumn, commands, window, workspace } from 'vscode';
 import { LaTeXCompiler } from './compiler';
 import { FileWatcher } from './fileWatcher';
-import { PreviewPanel } from './previewPanel';
 import { handleCompilationError } from './utils/errorHandler';
 
-let compiler: LaTeXCompiler, previewPanel: PreviewPanel | undefined, fileWatcher: FileWatcher | undefined;
+let compiler: LaTeXCompiler, fileWatcher: FileWatcher | undefined;
 
 const validateLatexDocument = () => {
     const editor = window.activeTextEditor;
@@ -15,6 +14,11 @@ const validateLatexDocument = () => {
     return editor.document;
 };
 
+const openPdfInVscode = async (pdfPath: string) => {
+    // Open PDF in VSCode (uses installed PDF extension or built-in viewer)
+    await commands.executeCommand('vscode.open', Uri.file(pdfPath), ViewColumn.Beside);
+};
+
 export function activate(context: ExtensionContext) {
     compiler = new LaTeXCompiler(context);
 
@@ -23,15 +27,10 @@ export function activate(context: ExtensionContext) {
         if (!document) return;
 
         await document.save();
-        if (!previewPanel) {
-            previewPanel = new PreviewPanel(context.extensionPath);
-            previewPanel.onDidDispose(() => { fileWatcher?.dispose(); previewPanel = fileWatcher = undefined; });
-        }
 
         try {
             const pdfPath = await compiler.compile(document.uri);
-            previewPanel.update(pdfPath);
-            previewPanel.reveal();
+            await openPdfInVscode(pdfPath);
 
             const config = workspace.getConfiguration('latex-preview');
             if (config.get<boolean>('autoCompile')) {
@@ -39,7 +38,8 @@ export function activate(context: ExtensionContext) {
                 fileWatcher = new FileWatcher(document.uri, async () => {
                     try {
                         const pdfPath = await compiler.compile(document.uri);
-                        previewPanel?.update(pdfPath);
+                        // Reopen to refresh (VSCode PDF viewers detect file changes)
+                        await openPdfInVscode(pdfPath);
                     } catch (error) {
                         handleCompilationError(error, 'watch');
                     }
@@ -54,10 +54,10 @@ export function activate(context: ExtensionContext) {
     });
 
     const refreshPreview = commands.registerCommand('latex-preview.refreshPreview', async () => {
-        if (!window.activeTextEditor || !previewPanel) return;
+        if (!window.activeTextEditor) return;
         try {
             const pdfPath = await compiler.compile(window.activeTextEditor.document.uri);
-            previewPanel.update(pdfPath);
+            await openPdfInVscode(pdfPath);
         } catch (error) {
             handleCompilationError(error, 'refresh');
         }

@@ -2,7 +2,7 @@
   "name": "latex-pdf-preview",
   "displayName": "LaTeX PDF Preview",
   "description": "Live PDF preview for LaTeX documents in VS Code",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "publisher": "hwisu",
   "icon": "icon.png",
   "engines": {
@@ -43,7 +43,7 @@
           "group": "navigation"
         },
         {
-          "when": "resourceExtname == .tex && latexPreviewFocus",
+          "when": "resourceExtname == .tex",
           "command": "latex-preview.refreshPreview",
           "group": "navigation"
         }
@@ -61,6 +61,20 @@
           "type": "boolean",
           "default": true,
           "description": "Automatically compile on file save"
+        },
+        "latex-preview.debounceDelay": {
+          "type": "number",
+          "default": 300,
+          "minimum": 0,
+          "maximum": 5000,
+          "description": "Debounce delay in milliseconds before triggering preview update (default: 300ms)"
+        },
+        "latex-preview.throttleDelay": {
+          "type": "number",
+          "default": 2000,
+          "minimum": 0,
+          "maximum": 10000,
+          "description": "Minimum interval between preview updates in milliseconds (default: 2000ms)"
         }
       }
     }
@@ -90,8 +104,5 @@
     "mocha": "^10.2.0",
     "prettier": "^2.8.0",
     "typescript": "^4.9.3"
-  },
-  "dependencies": {
-    "pdfjs-dist": "^5.3.93"
   }
 }
