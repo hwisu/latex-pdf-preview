@@ -33,8 +33,8 @@ export class PreviewPanel {
 
             // Get PDF.js resources
             const pdfjsDir = Uri.file(join(this.extensionPath, 'node_modules', 'pdfjs-dist', 'build'));
-            const pdfjsUri = webview.asWebviewUri(Uri.file(join(pdfjsDir.fsPath, 'pdf.min.js')));
-            const workerUri = webview.asWebviewUri(Uri.file(join(pdfjsDir.fsPath, 'pdf.worker.min.js')));
+            const pdfjsUri = webview.asWebviewUri(Uri.file(join(pdfjsDir.fsPath, 'pdf.min.mjs')));
+            const workerUri = webview.asWebviewUri(Uri.file(join(pdfjsDir.fsPath, 'pdf.worker.min.mjs')));
 
             // Use webview URI for PDF instead of base64 encoding
             const pdfUri = webview.asWebviewUri(Uri.file(pdfPath));
@@ -42,7 +42,7 @@ export class PreviewPanel {
             this.panel.webview.html = `<!DOCTYPE html>
 <html>
 <head>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${cspSource} data: blob:; script-src ${cspSource} 'nonce-${nonce}'; style-src ${cspSource} 'nonce-${nonce}';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${cspSource} data: blob:; script-src ${cspSource} 'nonce-${nonce}'; style-src ${cspSource} 'nonce-${nonce}'; connect-src ${cspSource}; worker-src blob:;">
     <style nonce="${nonce}">
         body { margin: 0; padding: 0; background: #1e1e1e; overflow-y: auto; text-align: center; }
         #container { padding: 20px; }
@@ -60,8 +60,8 @@ export class PreviewPanel {
         <button id="fitWidth">Fit Width</button>
     </div>
     <div id="container"></div>
-    <script src="${pdfjsUri}"></script>
-    <script nonce="${nonce}">
+    <script type="module" nonce="${nonce}">
+        import * as pdfjsLib from '${pdfjsUri}';
         pdfjsLib.GlobalWorkerOptions.workerSrc = '${workerUri}';
         let pdfDoc = null, scale = 1.2;
         const pdfUrl = '${pdfUri}';
