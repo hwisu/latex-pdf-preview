@@ -24,7 +24,9 @@ export function activate(context: ExtensionContext) {
 
     const showPreview = commands.registerCommand('latex-preview.showPreview', async () => {
         const document = validateLatexDocument();
-        if (!document) return;
+        if (!document) {
+            return;
+        }
 
         await document.save();
 
@@ -54,7 +56,9 @@ export function activate(context: ExtensionContext) {
     });
 
     const refreshPreview = commands.registerCommand('latex-preview.refreshPreview', async () => {
-        if (!window.activeTextEditor) return;
+        if (!window.activeTextEditor) {
+            return;
+        }
         try {
             const pdfPath = await compiler.compile(window.activeTextEditor.document.uri);
             await openPdfInVscode(pdfPath);

@@ -6,14 +6,14 @@ suite('Compiler Unit Tests', () => {
     const ALLOWED_EXECUTABLES = ['pdflatex', 'xelatex', 'lualatex', 'latexmk'];
 
     function validateExecutablePath(exePath: string): string {
-      const exeName = basename(exePath).replace(/\.exe$/i, '');
+      if (exePath.includes('..') || /[;&|`$]/.test(exePath)) {
+        throw new Error('Invalid characters in executable path');
+      }
+
+      const exeName = basename(exePath.replace(/\\/g, '/')).replace(/\.exe$/i, '');
 
       if (!ALLOWED_EXECUTABLES.includes(exeName)) {
         throw new Error(`Invalid LaTeX executable: ${exeName}`);
-      }
-
-      if (exePath.includes('..') || /[;&|`$]/.test(exePath)) {
-        throw new Error('Invalid characters in executable path');
       }
 
       return exePath;

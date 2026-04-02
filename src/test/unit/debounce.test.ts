@@ -5,7 +5,7 @@ suite('Debounce Unit Tests', () => {
     func: T,
     wait: number
   ): T {
-    let timeout: NodeJS.Timeout;
+    let timeout: ReturnType<typeof setTimeout>;
     return ((...args: unknown[]) => {
       clearTimeout(timeout);
       timeout = setTimeout(() => func(...args), wait);

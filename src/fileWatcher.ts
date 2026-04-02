@@ -12,15 +12,19 @@ export class FileWatcher {
 
     const debouncedChange = debounce(() => {
       const now = Date.now();
-      if (now - this.lastTrigger < throttleDelay) return;
+      if (now - this.lastTrigger < throttleDelay) {
+        return;
+      }
       this.lastTrigger = now;
       onChange();
     }, debounceDelay);
 
     this.disposables.push(
-      workspace.onDidSaveTextDocument(doc =>
-        doc.uri.toString() === uri.toString() && debouncedChange()
-      )
+      workspace.onDidSaveTextDocument(doc => {
+        if (doc.uri.toString() === uri.toString()) {
+          debouncedChange();
+        }
+      })
     );
   }
 

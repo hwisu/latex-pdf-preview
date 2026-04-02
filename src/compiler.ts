@@ -33,7 +33,9 @@ export class LaTeXCompiler {
 
   constructor(private context: ExtensionContext) {
     this.cacheDir = getCacheBaseDir();
-    existsSync(this.cacheDir) || mkdirSync(this.cacheDir, { recursive: true });
+    if (!existsSync(this.cacheDir)) {
+      mkdirSync(this.cacheDir, { recursive: true });
+    }
   }
 
   dispose = () => {
@@ -51,7 +53,9 @@ export class LaTeXCompiler {
 
   private simpleHash(input: string): string {
     let h = 0;
-    for (let i = 0; i < input.length; i++) h = (h * 31 + input.charCodeAt(i)) | 0;
+    for (let i = 0; i < input.length; i++) {
+      h = (h * 31 + input.charCodeAt(i)) | 0;
+    }
     return `${h >>> 0}`;
   }
 
@@ -65,15 +69,15 @@ export class LaTeXCompiler {
   }
 
   private validateExecutablePath(exePath: string): string {
-    const exeName = basename(exePath).replace(/\.exe$/i, '');
-
-    if (!ALLOWED_EXECUTABLES.includes(exeName)) {
-      throw new Error(`Invalid LaTeX executable: ${exeName}. Allowed: ${ALLOWED_EXECUTABLES.join(', ')}`);
-    }
-
     // Check for path traversal or injection attempts
     if (exePath.includes('..') || /[;&|`$]/.test(exePath)) {
       throw new Error('Invalid characters in executable path');
+    }
+
+    const exeName = basename(exePath.replace(/\\/g, '/')).replace(/\.exe$/i, '');
+
+    if (!ALLOWED_EXECUTABLES.includes(exeName)) {
+      throw new Error(`Invalid LaTeX executable: ${exeName}. Allowed: ${ALLOWED_EXECUTABLES.join(', ')}`);
     }
 
     return exePath;
@@ -87,7 +91,9 @@ export class LaTeXCompiler {
     // Use hash of full path to avoid collisions between same-named files
     const pathHash = this.simpleHash(texPath);
     const workDir = join(this.cacheDir, `${texName}-${pathHash}`);
-    existsSync(workDir) || mkdirSync(workDir, { recursive: true });
+    if (!existsSync(workDir)) {
+      mkdirSync(workDir, { recursive: true });
+    }
 
     const tempTexPath = join(workDir, basename(texPath));
     copyFileSync(texPath, tempTexPath);
@@ -155,7 +161,9 @@ export class LaTeXCompiler {
         ['.aux', '.log', '.out', '.toc', '.lof', '.lot', '.fls', '.fdb_latexmk', '.synctex.gz']
           .forEach(ext => {
             const filePath = join(workDir, texName + ext);
-            existsSync(filePath) && unlinkSync(filePath);
+            if (existsSync(filePath)) {
+              unlinkSync(filePath);
+            }
           });
 
         this.lastInputHash.set(texPath, currentHash);
